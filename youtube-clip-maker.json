@@ -1,0 +1,91 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "http://localhost:5000/transcript",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "{\n  \"url\": \"https://www.youtube.com/watch?v=VIDEO_ID\"\n}"
+      },
+      "id": "1",
+      "name": "Get Transcript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const transcript = items[0].json;\nconst lines = transcript.map(entry => ({\n  text: entry.text,\n  start: entry.start,\n  duration: entry.duration\n}));\n\nconst clips = [];\nconst cueRegex = /(?:next up is|performing|now performing|please welcome)\\s+(.*?)\\.?/i;\n\nfor (let i = 0; i < lines.length; i++) {\n  const match = lines[i].text.match(cueRegex);\n  if (match) {\n    const name = match[1];\n    const startTime = lines[i].start;\n    const endTime = i + 30 < lines.length ? lines[i + 30].start : startTime + 300;\n    clips.push({ name, startTime, endTime });\n  }\n}\n\nreturn clips.map(c => ({\n  json: {\n    participant: c.name,\n    start: c.startTime,\n    end: c.endTime\n  }\n}));"
+      },
+      "id": "2",
+      "name": "Detect Participants",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "values": {
+          "string": [
+            {
+              "name": "Participant",
+              "value": "={{$json[\"participant\"]}}"
+            },
+            {
+              "name": "Start",
+              "value": "={{$json[\"start\"]}}"
+            },
+            {
+              "name": "End",
+              "value": "={{$json[\"end\"]}}"
+            }
+          ]
+        }
+      },
+      "id": "3",
+      "name": "Prepare Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        600,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Get Transcript": {
+      "main": [
+        [
+          {
+            "node": "Detect Participants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Participants": {
+      "main": [
+        [
+          {
+            "node": "Prepare Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "name": "YouTube Clip Extractor",
+  "version": 1
+}
